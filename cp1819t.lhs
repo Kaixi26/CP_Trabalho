@@ -1300,41 +1300,64 @@ k_ (n+1) = 8 + k_ n
 
 cos' x = prj . for loop init where
    init = (1, (-x^2)/2, 12, 18)
-   loop (cos,h,f,k) = (h+cos, ((-x^2)/f)*h, f+k, k+8) --(h+cos, (-(x^2))/f * h, f+k, k+8)
+   loop (cos,h,f,k) = (h+cos, ((-x^2)/f)*h, f+k, k+8)
    prj (cos,h,f,g) = cos
-s 0 = 2
-s (n+1) = 1 + s n
 \end{code}
 
 \subsection*{Problema 4}
 Triologia ``ana-cata-hilo":
 \begin{code}
-outFS (FS l) = undefined
-outNode = undefined
+outFS (FS l) = map (id >< outNode) l
+outNode (File b) = i1 b
+outNode (Dir n)  = i2 n
 
-baseFS f g h = undefined
+baseFS f g h = map (f >< (g -|- h))
 
 cataFS :: ([(a, Either b c)] -> c) -> FS a b -> c
-cataFS g = undefined
+cataFS g = g . recFS (cataFS g) . outFS
 
 anaFS :: (c -> [(a, Either b c)]) -> c -> FS a b
-anaFS g = undefined
+anaFS g = inFS . recFS (anaFS g) . g
 
-hyloFS g h = undefined
+hyloFS g h = cataFS h . anaFS g
 \end{code}
 Outras funções pedidas:
 \begin{code}
+
+cataFSdist f = cataFS (f . partitionEithers . map distr)
+
 check :: (Eq a) => FS a b -> Bool
-check = undefined
+check =  cataFSdist (uncurry (&&) . (repeated >< all ((==True) . snd)))
+  where
+    repeated l = let l' = map fst l in nub l' == l'
 
 tar :: FS a b -> [(Path a, b)]
-tar = undefined
+tar = cataFSdist (conc . (map (pure >< id) >< concat . map addPath))
+  where
+    addPath (a, fs) = map ((a:) >< id) fs
 
 untar :: (Eq a) => [(Path a, b)] -> FS a b
-untar = undefined
+untar =  anaFS (map undistr
+  . uniteEithers
+  . (map (id >< snd) >< collectEq)
+  . partition (null . fst . snd)
+  . map (\((a:as),b) -> (a,(as,b))))
+
+uniteEithers :: ([a],[b]) -> [Either a b]
+uniteEithers (l,r) = map i1 l ++ map i2 r
+
+collectEq :: (Eq a) => [(a,b)] -> [(a,[b])]
+collectEq l = [(a,[b | (_,b) <- filter ((==a) . fst) l]) | a <- nub $ map fst l]
+
+prop_collectEq1 l = sort l == (sort . discollectEq . collectEq) l
+  where discollectEq = concat . map (\(a,l) -> map (\b -> (a,b)) l)
 
 find :: (Eq a) => a -> FS a b -> [Path a]
-find = undefined
+--find = undefined
+find a = cataFSdist (conc . (findLeft >< findRight))
+  where
+    findLeft = map pure . filter (==a) . map fst
+    findRight = concat . map (\(a,pths) -> map (a:) pths)
 
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
 new = undefined

@@ -1229,19 +1229,32 @@ pushOperator op (out, (op':st)) = case comparePrecedence op op' of
 \subsection*{Problema 2}
 
 \begin{code}
+
+-- sb -> simple box; ty -> type; cb -> complex box
 inL2D :: Either a (b, (X a b,X a b)) -> X a b
-inL2D = undefined
+inL2D (Left sb) = Unid sb
+inL2D (Right (ty,(cb,cb'))) = Comp ty cb cb'
 
 outL2D :: X a b -> Either a (b, (X a b,X a b))
-outL2D = undefined
+outL2D (Unid sb) = i1 sb
+outL2D (Comp ty cb cb') = i2 (ty,(cb,cb'))
 
-recL2D f = undefined
+recL2D f = id -|- id >< (f >< f)
 
-cataL2D g = undefined
+cataL2D g = g . recL2D (cataL2D g) . outL2D
 
-anaL2D g = undefined
+anaL2D g = inL2D . recL2D (anaL2D g) . g
 
-collectLeafs = undefined
+typeTable =
+  [ (V , \((w,h),_) ((w',h'),_) -> (w `div` 2 - w',h))
+  , (Vd, \((w,h),_) ((w',h'),_) -> (w - w',h))
+  , (Ve, \((w,h),_) ((w',h'),_) -> (0,h))
+  , (H , \((w,h),_) ((w',h'),_) -> (w,h `div` 2 - h'))
+  , (Hb, \((w,h),_) ((w',h'),_) -> (w,0))
+  , (Ht, \((w,h),_) ((w',h'),_) -> (w,h - h'))
+  ]
+
+collectLeafs = undefined {-(???)-}
 
 dimen :: X Caixa Tipo -> (Float, Float)
 dimen = undefined
@@ -1258,10 +1271,39 @@ caixasAndOrigin2Pict = undefined
 \subsection*{Problema 3}
 Solução:
 \begin{code}
+
+_cos x n = sum [ ((-x^2)^i) / (fromIntegral $ fac (2*i))| i <- [0..n]]
+_h x n   = (-x^2)^(n+1) / (fromIntegral $ fac (2*(n+1)))
+_f n = fromIntegral $ 4*n^2 + 14*n + 12--(2*n+4)*(2*n+3)
+{- a 4; b 14; c 12-}
+
+cos_ x 0 = 1
+cos_ x (n+1) = cos_ x n + _h x n
+
+h_ x 0 = (-x^2)/2
+h_ x (n+1) = ((-x^2) / (_f n)) * h_ x n
+
+--_h x 0 = (-x^2)/2
+--_h x n = ((-x^2)^(n+2)) / (fromIntegral $ fac $ 2*(n+2))
+
+{-h x n = ((-x^2)^(n+1))/(fromIntegral (fac (2*(n+1))))
+h_ :: Double -> Int -> Double
+h_ x 0 = (-x^2)/2
+h_ x (n+1) = (-x^2)/(fromIntegral (f n)) * h_ x n
+
+f n = 2*(n+1) + 2*
+f_ 0 = 0
+f_ (n+1) = k_ n + f_ n
+k_ 0 = undefined
+k_ (n+1) = 8 + k_ n
+-}
+
 cos' x = prj . for loop init where
-   loop = undefined
-   init = undefined
-   prj = undefined
+   init = (1, (-x^2)/2, 12, 18)
+   loop (cos,h,f,k) = (h+cos, ((-x^2)/f)*h, f+k, k+8) --(h+cos, (-(x^2))/f * h, f+k, k+8)
+   prj (cos,h,f,g) = cos
+s 0 = 2
+s (n+1) = 1 + s n
 \end{code}
 
 \subsection*{Problema 4}

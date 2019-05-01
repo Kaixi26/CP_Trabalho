@@ -1353,23 +1353,25 @@ prop_collectEq1 l = sort l == (sort . discollectEq . collectEq) l
   where discollectEq = concat . map (\(a,l) -> map (\b -> (a,b)) l)
 
 find :: (Eq a) => a -> FS a b -> [Path a]
---find = undefined
 find a = cataFSdist (conc . (findLeft >< findRight))
   where
     findLeft = map pure . filter (==a) . map fst
     findRight = concat . map (\(a,pths) -> map (a:) pths)
 
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
-new = undefined
+new p b = untar . cond (null . lookup p) id ((p,b):) . tar
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
-cp = undefined
+cp p p' fs = let tfs = tar fs
+                 (_,b') = head . filter ((==p) . fst) $ tfs
+             in untar . cond (null . lookup p) id ((p',b'):) $ tfs
+
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
-rm = undefined
+rm p = untar . filter ((==p) . fst) . tar
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
-auxJoin = undefined
+auxJoin (l,d) = map (id >< (id -|- \c -> (d,c))) l
 
 cFS2Exp :: a -> FS a b -> (Exp () a)
 cFS2Exp = undefined

@@ -923,6 +923,7 @@ parentesis ap pa r input
                         r                `depois` (
                         readConst [pa])))           input
       return (x,c)
+
 \end{code}
 
 \subsection*{Problema 2}
@@ -1245,27 +1246,60 @@ cataL2D g = g . recL2D (cataL2D g) . outL2D
 
 anaL2D g = inL2D . recL2D (anaL2D g) . g
 
-typeTable =
-  [ (V , \((w,h),_) ((w',h'),_) -> (w `div` 2 - w',h))
-  , (Vd, \((w,h),_) ((w',h'),_) -> (w - w',h))
-  , (Ve, \((w,h),_) ((w',h'),_) -> (0,h))
-  , (H , \((w,h),_) ((w',h'),_) -> (w,h `div` 2 - h'))
-  , (Hb, \((w,h),_) ((w',h'),_) -> (w,0))
-  , (Ht, \((w,h),_) ((w',h'),_) -> (w,h - h'))
-  ]
+typeTable V  = 
+    ( \(w,h) (w',h') -> (w/2- w'/2,h)
+    , \(w,h) (w',h') -> (max w w', h+h'))
+typeTable Vd = 
+    ( \(w,h) (w',h') -> (w - w',h)
+    , \(w,h) (w',h') -> (max w w', h+h'))
+typeTable Ve =
+    ( \(w,h) (w',h') -> (0,h)
+    , \(w,h) (w',h') -> (max w w', h+h'))
+typeTable H  =
+    ( \(w,h) (w',h') -> (w,h/2 - h'/2)
+    , \(w,h) (w',h') -> (w+w', max h h'))
+typeTable Hb =
+    ( \(w,h) (w',h') -> (w,0)
+    , \(w,h) (w',h') -> (w+w', max h h'))
+typeTable Ht =
+    ( \(w,h) (w',h') -> (w,h - h')
+    , \(w,h) (w',h') -> (w+w', max h h'))
 
-collectLeafs = undefined {-(???)-}
+collectLeafs = cataL2D (either pure (conc . p2))
 
 dimen :: X Caixa Tipo -> (Float, Float)
-dimen = undefined
+dimen = (fromIntegral >< fromIntegral)
+      . cataL2D (either p1 joinDimen)
+    where
+    joinDimen = Cp.ap . ((uncurry . p2 . typeTable) >< id)
 
 calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
-calcOrigins = undefined
+calcOrigins = anaL2D g
+    where
+    g = (id -|- calcOrig) . distl . (outL2D >< id)
+    calcOrig ((t,(l2d,l2d')),o@(o1,o2)) =
+        let d = dimen l2d
+            d' = dimen l2d'
+            o' =  (\(x,y) -> ((x+o1),(y+o2))) $ (fst $ typeTable t) d d'
+        in ((),((l2d,o),(l2d',o')))
+
 
 calc :: Tipo -> Origem -> (Float, Float) -> Origem
-calc = undefined
+calc t (o1,o2) (w,h) = case t of
+    Hb -> (o1+w,o2)
+    H  -> (o1+w,o2+h/2)
+    Ve -> (o1,o2+h)
+    V  -> (o1+w/2,o2+h)
+    otherwise -> (o1+w,o2+h)
 
-caixasAndOrigin2Pict = undefined
+agrup_caixas :: X (Caixa, Origem) () -> Fig
+agrup_caixas = cataL2D (either (pure . swap) (conc . p2))
+
+caixasAndOrigin2Pict = G.Pictures
+    . map (\(o,((w,h),(t,c))) -> crCaixa o (fromIntegral w) (fromIntegral h) t c)
+    . agrup_caixas
+    . calcOrigins
+
 \end{code}
 
 \subsection*{Problema 3}
@@ -1327,9 +1361,10 @@ Outras funções pedidas:
 cataFSdist f = cataFS (f . partitionEithers . map distr)
 
 check :: (Eq a) => FS a b -> Bool
-check =  cataFSdist (uncurry (&&) . (repeated >< all ((==True) . snd)))
+check =  cataFS g
   where
-    repeated l = let l' = map fst l in nub l' == l'
+    g = uncurry (&&) . split (not . hasRepeated . map fst) (and . rights . map snd)
+    hasRepeated = uncurry (/=) . split id nub
 
 tar :: FS a b -> [(Path a, b)]
 tar = cataFSdist (conc . (map (pure >< id) >< concat . map addPath))
@@ -1337,7 +1372,7 @@ tar = cataFSdist (conc . (map (pure >< id) >< concat . map addPath))
     addPath (a, fs) = map ((a:) >< id) fs
 
 untar :: (Eq a) => [(Path a, b)] -> FS a b
-untar =  anaFS (map undistr
+untar = joinDupDirs . anaFS (map undistr
   . uniteEithers
   . (map (id >< snd) >< collectEq)
   . partition (null . fst . snd)
@@ -1359,7 +1394,9 @@ find a = cataFSdist (conc . (findLeft >< findRight))
     findRight = concat . map (\(a,pths) -> map (a:) pths)
 
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
-new p b = untar . cond (null . lookup p) id ((p,b):) . tar
+new p b = untar . cond (prp . map fst) ((p,b):) id . tar
+    where
+    prp = and . split (elem p) (not . elem (init p) . map init)
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
 cp p p' fs = let tfs = tar fs
@@ -1368,13 +1405,16 @@ cp p p' fs = let tfs = tar fs
 
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
-rm p = untar . filter ((==p) . fst) . tar
+rm p = untar . filter ((/=p) . fst) . tar
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
 auxJoin (l,d) = map (id >< (id -|- \c -> (d,c))) l
 
 cFS2Exp :: a -> FS a b -> (Exp () a)
-cFS2Exp = undefined
+cFS2Exp = curry (anaExp g)
+    where
+    g = i2 . (id >< (map (either (id><const(FS [])) id . distr) . outFS))
+
 \end{code}
 
 %----------------- Fim do anexo com soluções dos alunos ------------------------%

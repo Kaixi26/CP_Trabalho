@@ -1,0 +1,17 @@
+digraph G {
+    /* edge [label=0]; */
+    graph [ranksep=0.5];
+    root_0 [shape=record, label="{{root}}"];
+    F_1 [shape=record, label="{{F}}"];
+    _4 [shape=record, label="{{}}"];
+    fu_6 [shape=record, label="{{fu}}"];
+    _5 [shape=record, label="{{}}"];
+    _2 [shape=record, label="{{}}"];
+    _3 [shape=record, label="{{}}"];
+    _4 -> fu_6;
+    _4 -> _5;
+    _2 -> _3;
+    F_1 -> _4;
+    F_1 -> _2;
+    root_0 -> F_1;
+}

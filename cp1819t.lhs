@@ -1176,54 +1176,45 @@ compile = let printPush = pure . (++) "PUSH " . show
               printBop (op,(es,es')) = es ++ es' ++ [bopExtr bop2St op]
           in cataExpr (either printPush printBop) . read
 
-{-
-compile :: String -> Codigo
-compile = cataExpr (either p_push p_op) . infixToExpr
-  where
-    p_push x = [concat ["PUSH ", show x]]
-    p_op (op,(es,es')) = es ++ es' ++ [bopExtr bop2St op]
+readExpr' :: String -> Expr
+readExpr' = anaExpr g . filter (/=' ')
+    where
+    g :: String -> Either Int (Op,(String,String))
+    g s = head $
+          (map i2 . concat $
+            [ findParen findOps s
+            , findOps s]
+          ) ++ (map i1 $ findNum s)
 
-niceprop x = (calcula x) == (calcula . infixToExpr . show' $ x)
-infixToExpr :: String -> Expr
-infixToExpr = pnToExpr . infixToPN . tokenize
+findParen :: (String -> [a]) -> String -> [a]
+findParen f ('(':str) = f $ findParen' (str,[]) 1
+    where
+    findParen' :: (String,String) -> Int -> String
+    findParen' ([],xxs') 0 = if last xxs' == ')' then init xxs' else []
+    findParen' ([],_) _ = []
+    findParen' ('(':xs,xxs') n = findParen' (xs,xxs'++"(") (n+1)
+    findParen' (')':xs,xxs') n = findParen' (xs,xxs'++")") (n-1)
+    findParen' (x:xs,xxs') n = findParen' (xs,xxs'++[x]) n
+findParen _ _ = []
 
-pnToExpr :: [String] -> Expr
-pnToExpr = fst . pnToExprAux
-  where
-    pnToExprAux :: [String] -> (Expr, [String])
-    pnToExprAux (h:t) = case all isDigit h of
-      True -> (Num $ read h, t)
-      False -> let (e, s)  = pnToExprAux t;
-                   (e',s') = pnToExprAux s in
-        (Bop e' (Op h) e, s')
--}
+findNum :: String -> [Int]
+findNum = map fst . reads
 
-{- Works because all valid operations need only one character -}
-tokenize = groupBy ((&&) `F.on` isDigit) . filter (/=' ')
+findOps :: String -> [(Op,(String,String))]
+findOps s = concat [ findOp "+" s
+                   , findOp "-" s
+                   , findOp "*" s]
 
-{- Shunting-yard algorithm implementation -}
-{-
-infixToPN :: [String] -> [String]
-infixToPN = uncurry (flip (++)) . (id >< reverse). foldl (performAction) ([],[])
+findOp :: String -> String -> [(Op,(String,String))]
+findOp op str = findOp' op (str,[]) 0
+    where
+    findOp' op ([],_) _ = []
+    findOp' op ('(':xs,xxs') n = findOp' op (xs,xxs'++"(") (n+1)
+    findOp' op (')':xs,xxs') n = findOp' op (xs,xxs'++")") (n-1)
+    findOp' op (xxs@(x:xs),xxs') n
+        |isPrefixOf op xxs && n==0 = [(Op op, (xxs', drop (length op) xxs))]
+        |otherwise = findOp' op (xs,xxs'++[x]) n        
 
-performAction (out, st) tok
-  |isDigit $ head tok = (tok:out, st)
-  |tok == "(" = (out, tok:st)
-  |tok == ")" = let (ops, st') = span (/="(") st in (ops++out, tail st')
-  |otherwise = pushOperator tok (out, st)
-
-pushOperator op (out, []) = (out, [op])
-pushOperator op (out, (op':st)) = case comparePrecedence op op' of
-     GT -> (out, op:op':st)
-     otherwise -> (op':out, op:st)
-  where
-    comparePrecedence o o' = compare (precedence o) (precedence o')
-    precedence o = case o of
-      "+" -> 1
-      "-" -> 1
-      "*" -> 2
-      "(" -> -1
--}
 
 \end{code}
 
@@ -1306,37 +1297,25 @@ caixasAndOrigin2Pict = G.Pictures
 Solução:
 \begin{code}
 
-_cos x n = sum [ ((-x^2)^i) / (fromIntegral $ fac (2*i))| i <- [0..n]]
-_h x n   = (-x^2)^(n+1) / (fromIntegral $ fac (2*(n+1)))
-_f n = fromIntegral $ 4*n^2 + 14*n + 12--(2*n+4)*(2*n+3)
-{- a 4; b 14; c 12-}
-
-cos_ x 0 = 1
-cos_ x (n+1) = cos_ x n + _h x n
-
-h_ x 0 = (-x^2)/2
-h_ x (n+1) = ((-x^2) / (_f n)) * h_ x n
-
---_h x 0 = (-x^2)/2
---_h x n = ((-x^2)^(n+2)) / (fromIntegral $ fac $ 2*(n+2))
-
-{-h x n = ((-x^2)^(n+1))/(fromIntegral (fac (2*(n+1))))
-h_ :: Double -> Int -> Double
-h_ x 0 = (-x^2)/2
-h_ x (n+1) = (-x^2)/(fromIntegral (f n)) * h_ x n
-
-f n = 2*(n+1) + 2*
-f_ 0 = 0
-f_ (n+1) = k_ n + f_ n
-k_ 0 = undefined
-k_ (n+1) = 8 + k_ n
--}
-
 cos' x = prj . for loop init where
    init = (1, (-x^2)/2, 12, 18)
    loop (cos,h,f,k) = (h+cos, ((-x^2)/f)*h, f+k, k+8)
    prj (cos,h,f,g) = cos
 \end{code}
+
+double cos_(double x, int n){
+    double r=1;
+    double h=-pow(x,2)/2;
+    double f=12;
+    double k=18;
+    for(int i=0; i<n; i++){
+        r+=h;
+        h=(-pow(x,2)/f)*h;
+        f+=k;
+        k+=8;
+    }
+    return r;
+}
 
 \subsection*{Problema 4}
 Triologia ``ana-cata-hilo":
@@ -1372,20 +1351,14 @@ tar = cataFSdist (conc . (map (pure >< id) >< concat . map addPath))
     addPath (a, fs) = map ((a:) >< id) fs
 
 untar :: (Eq a) => [(Path a, b)] -> FS a b
-untar = joinDupDirs . anaFS (map undistr
+untar = anaFS (map undistr
   . uniteEithers
   . (map (id >< snd) >< collectEq)
   . partition (null . fst . snd)
   . map (\((a:as),b) -> (a,(as,b))))
-
-uniteEithers :: ([a],[b]) -> [Either a b]
-uniteEithers (l,r) = map i1 l ++ map i2 r
-
-collectEq :: (Eq a) => [(a,b)] -> [(a,[b])]
-collectEq l = [(a,[b | (_,b) <- filter ((==a) . fst) l]) | a <- nub $ map fst l]
-
-prop_collectEq1 l = sort l == (sort . discollectEq . collectEq) l
-  where discollectEq = concat . map (\(a,l) -> map (\b -> (a,b)) l)
+  where
+  uniteEithers (l,r) = map i1 l ++ map i2 r
+  collectEq l = [(a,[b | (_,b) <- filter ((==a) . fst) l]) | a <- nub $ map fst l]
 
 find :: (Eq a) => a -> FS a b -> [Path a]
 find a = cataFSdist (conc . (findLeft >< findRight))
@@ -1394,18 +1367,30 @@ find a = cataFSdist (conc . (findLeft >< findRight))
     findRight = concat . map (\(a,pths) -> map (a:) pths)
 
 new :: (Eq a) => Path a -> b -> FS a b -> FS a b
-new p b = untar . cond (prp . map fst) ((p,b):) id . tar
+new = (curry . curry) (anaFS g)
     where
-    prp = and . split (elem p) (not . elem (init p) . map init)
+    g = uncurry dist . (id >< outFS)
+    dist ([],b)   = map (id >< second (\fs -> (([],b),fs)))
+    dist ([a],b)  = ((a,i1 b):) . dist ([],b)
+    dist (a:as,b) = map (undistr . second (\(a',fs) -> (a',((if a==a' then as else [],b),fs))) . distr)
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
-cp p p' fs = let tfs = tar fs
-                 (_,b') = head . filter ((==p) . fst) $ tfs
-             in untar . cond (null . lookup p) id ((p',b'):) $ tfs
-
+cp p p' fs =
+    let tfs = tar fs
+        b' = lookup p $ tfs
+    in untar
+     . cond ((||(isNothing b')) . null . lookup p) 
+        id 
+        ((p',fromJust b'):) 
+     $ tfs
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
-rm p = untar . filter ((/=p) . fst) . tar
+rm = curry (anaFS g)
+    where
+    g = uncurry dist . (id >< outFS)
+    dist []  = map (id >< second (\fs -> ([],fs)))
+    dist [a] = filter (\(a',bfs) -> either (const (a/=a')) true bfs) . dist []
+    dist (a:as) = map (undistr . second (\(a',fs) -> (a',((if a==a' then as else []),fs))) . distr)
 
 auxJoin :: ([(a, Either b c)],d) -> [(a, Either b (d,c))]
 auxJoin (l,d) = map (id >< (id -|- \c -> (d,c))) l

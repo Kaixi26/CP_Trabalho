@@ -1184,7 +1184,11 @@ readExpr' = anaExpr g . filter (/=' ')
           (map i2 . concat $
             [ findParen findOps s
             , findOps s]
-          ) ++ (map i1 $ findNum s)
+          ) ++
+          (map i1 . concat $
+            [ findNum s
+            , findParen findNum s
+            ])
 
 findParen :: (String -> [a]) -> String -> [a]
 findParen f ('(':str) = f $ findParen' (str,[]) 1
@@ -1212,8 +1216,11 @@ findOp op str = findOp' op (str,[]) 0
     findOp' op ('(':xs,xxs') n = findOp' op (xs,xxs'++"(") (n+1)
     findOp' op (')':xs,xxs') n = findOp' op (xs,xxs'++")") (n-1)
     findOp' op (xxs@(x:xs),xxs') n
-        |isPrefixOf op xxs && n==0 = [(Op op, (xxs', drop (length op) xxs))]
+        |validMatch = [(Op op, (xxs', drop (length op) xxs))]
         |otherwise = findOp' op (xs,xxs'++[x]) n        
+        where
+        validMatch =  isPrefixOf op xxs && n==0
+                   && not (null xs) && not (null xxs')
 
 
 \end{code}
@@ -1237,24 +1244,6 @@ cataL2D g = g . recL2D (cataL2D g) . outL2D
 
 anaL2D g = inL2D . recL2D (anaL2D g) . g
 
-typeTable V  = 
-    ( \(w,h) (w',h') -> (w/2- w'/2,h)
-    , \(w,h) (w',h') -> (max w w', h+h'))
-typeTable Vd = 
-    ( \(w,h) (w',h') -> (w - w',h)
-    , \(w,h) (w',h') -> (max w w', h+h'))
-typeTable Ve =
-    ( \(w,h) (w',h') -> (0,h)
-    , \(w,h) (w',h') -> (max w w', h+h'))
-typeTable H  =
-    ( \(w,h) (w',h') -> (w,h/2 - h'/2)
-    , \(w,h) (w',h') -> (w+w', max h h'))
-typeTable Hb =
-    ( \(w,h) (w',h') -> (w,0)
-    , \(w,h) (w',h') -> (w+w', max h h'))
-typeTable Ht =
-    ( \(w,h) (w',h') -> (w,h - h')
-    , \(w,h) (w',h') -> (w+w', max h h'))
 
 collectLeafs = cataL2D (either pure (conc . p2))
 
@@ -1262,7 +1251,7 @@ dimen :: X Caixa Tipo -> (Float, Float)
 dimen = (fromIntegral >< fromIntegral)
       . cataL2D (either p1 joinDimen)
     where
-    joinDimen = Cp.ap . ((uncurry . p2 . typeTable) >< id)
+    joinDimen = Cp.ap . ((uncurry . calcDim) >< id)
 
 calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
 calcOrigins = anaL2D g
@@ -1270,8 +1259,7 @@ calcOrigins = anaL2D g
     g = (id -|- calcOrig) . distl . (outL2D >< id)
     calcOrig ((t,(l2d,l2d')),o@(o1,o2)) =
         let d = dimen l2d
-            d' = dimen l2d'
-            o' =  (\(x,y) -> ((x+o1),(y+o2))) $ (fst $ typeTable t) d d'
+            o' =  calc t o d
         in ((),((l2d,o),(l2d',o')))
 
 
@@ -1282,6 +1270,12 @@ calc t (o1,o2) (w,h) = case t of
     Ve -> (o1,o2+h)
     V  -> (o1+w/2,o2+h)
     otherwise -> (o1+w,o2+h)
+
+calcDim V  = \(w,h) (w',h') -> (max w w', h+h')
+calcDim Ve = \(w,h) (w',h') -> (max w w', h+h')
+calcDim H  = \(w,h) (w',h') -> (w+w', max h h')
+calcDim Hb = \(w,h) (w',h') -> (w+w', max h h')
+calcDim _  = \(w,h) (w',h') -> (w+w', h+h')
 
 agrup_caixas :: X (Caixa, Origem) () -> Fig
 agrup_caixas = cataL2D (either (pure . swap) (conc . p2))

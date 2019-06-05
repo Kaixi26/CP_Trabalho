@@ -65,6 +65,7 @@
 %format LTree = "\mathsf{LTree}"
 %format inNat = "\mathsf{in}"
 %format (cataNat (g)) = "\cata{" g "}"
+%format (anaNat (g)) = "\ana{" g "}"
 %format Nat0 = "\N_0"
 %format muB = "\mu "
 %format (frac (n)(m)) = "\frac{" n "}{" m "}"
@@ -692,7 +693,13 @@ prop_new = ((validPath .&&&. notDup) .&&&. (check . p2)) .==>.
 \end{code}
 \textbf{Questão}: Supondo-se que no código acima se substitui a propriedade
 |checkFiles| pela propriedade mais fraca |check|, será que a propriedade
-|prop_new| ainda é válida? Justifique a sua resposta.
+|prop_new| ainda é válida? Justifique a sua resposta.\newline
+Como a propriedade |check| é mais fraca do que a propriedade
+|checkFiles| então para todos os casos em que |checkFiles|
+é verdadeira, |check| também o será.\newline
+É então evidente que |prop_new| será válida ao fazer
+a substituição para |check| (assumindo que
+já o era com |checkFiles|).
 \end{propriedade}
 
 \begin{propriedade}
@@ -824,6 +831,7 @@ Seja $e\ x\ n = \sum_{i=0}^{n} \frac {x^i} {i!}$ a função que dá essa aproxim
 Se definirmos $|h x n| = \frac {x^{n+1}} {(n+1)!}$ teremos |e x| e |h x| em recursividade
 mútua. Se repetirmos o processo para |h x n| etc obteremos no total três funções nessa mesma
 situação:
+
 \begin{spec}
 e x 0 = 1
 e x (n+1) = h x n + e x n
@@ -1130,6 +1138,30 @@ outras funções auxiliares que sejam necessárias.
 
 \subsection*{Problema 1}
 
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |A|
+           \ar[d]_-{\ana{g}}
+           \ar[r]_-{|g|}
+&
+    |Int + (Op >< (A >< A))|
+           \ar[d]^{|id + (id >< (anaNat g  >< anaNat g))|}
+\\
+    |Expr|
+           \ar[d]_-{|cataNat g|}
+           \ar[r]_-{|outExpr|}
+&
+    |Int + (Op >< (Expr >< Expr))|
+           \ar[d]^-{|id + (id >< (cataNat g >< cataNat g))|}
+           \ar[l]_-{inExpr}
+\\
+     |B|
+&
+     |Int + (Op >< (B >< B))|
+           \ar[l]^-{|h|}
+}
+\end{eqnarray*}
+
 \begin{code}
 
 inExpr :: Either Int (Op,(Expr,Expr)) -> Expr
@@ -1148,33 +1180,38 @@ inOp s = Op s
 outOp :: Op -> String
 outOp (Op s) = s
 
-recExpr f = id -|- id >< (f >< f)
+recExpr = baseExpr id
 
 cataExpr g = g . recExpr (cataExpr g) . outExpr
 
 anaExpr g = inExpr . recExpr (anaExpr g) . g
 
-bopLookupTable = M.fromList
-  [ ("+", (uncurry (+), "ADD"))
-  , ("-", (uncurry (-), "SUB"))
-  , ("*", (uncurry (*), "MUL"))
-  ]
+hyloExpr g h = cataExpr h . anaExpr g
 
-bop2Func = fmap p1 . flip M.lookup bopLookupTable
-bop2St   = fmap p2 . flip M.lookup bopLookupTable
+bopTable = [ ("+", (uncurry (+), "ADD"))
+           , ("-", (uncurry (-), "SUB"))
+           , ("*", (uncurry (*), "MUL"))
+           ]
+
+bop2Func = fmap p1 . flip lookup bopTable
+bop2St   = fmap p2 . flip lookup bopTable
 bopExtr f = fromJust . f . outOp
 
 calcula :: Expr -> Int
 calcula = cataExpr (either id (Cp.ap . (bopExtr bop2Func >< id)))
 
 show' :: Expr -> String
-show' = let showBop (op, (es,es')) = concat ["(", es, " ", outOp op, " ", es', ")"]
-        in cataExpr (either show showBop)
+show' = cataExpr (either show showBop)
+    where
+    showBop (op, (es,es')) = concat $
+        ["(", es, " ", outOp op, " ", es', ")"]
+
 
 compile :: String -> Codigo
-compile = let printPush = pure . (++) "PUSH " . show
-              printBop (op,(es,es')) = es ++ es' ++ [bopExtr bop2St op]
-          in cataExpr (either printPush printBop) . read
+compile = cataExpr (either printPush printBop) . read
+    where
+    printPush = pure . (++) "PUSH " . show
+    printBop (op,(es,es')) = concat [es,es',[bopExtr bop2St op]]
 
 readExpr' :: String -> Expr
 readExpr' = anaExpr g . filter (/=' ')
@@ -1188,7 +1225,8 @@ readExpr' = anaExpr g . filter (/=' ')
           (map i1 . concat $
             [ findNum s
             , findParen findNum s
-            ])
+          ]) ++
+          [errorWithoutStackTrace "no parse."]
 
 findParen :: (String -> [a]) -> String -> [a]
 findParen f ('(':str) = f $ findParen' (str,[]) 1
@@ -1227,9 +1265,32 @@ findOp op str = findOp' op (str,[]) 0
 
 \subsection*{Problema 2}
 
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |C|
+           \ar[d]_-{\ana{g}}
+           \ar[r]_-{|g|}
+&
+    |A + (B >< (C >< C))|
+           \ar[d]^{|id + (id >< (anaNat g  >< anaNat g)|}
+\\
+    |X A B|
+           \ar[d]_-{|cataNat g|}
+           \ar[r]_-{|outL2D|}
+&
+    |A + (B >< (X A B >< X A B))|
+           \ar[d]^-{|id + (id >< (cataNat g >< cataNat g))|}
+           \ar[l]_-{inL2D}
+\\
+     |D|
+&
+     |A + (B >< (D >< D))|
+           \ar[l]^-{|h|}
+}
+\end{eqnarray*}
+
 \begin{code}
 
--- sb -> simple box; ty -> type; cb -> complex box
 inL2D :: Either a (b, (X a b,X a b)) -> X a b
 inL2D (Left sb) = Unid sb
 inL2D (Right (ty,(cb,cb'))) = Comp ty cb cb'
@@ -1244,8 +1305,13 @@ cataL2D g = g . recL2D (cataL2D g) . outL2D
 
 anaL2D g = inL2D . recL2D (anaL2D g) . g
 
-
 collectLeafs = cataL2D (either pure (conc . p2))
+
+calcDim V  = \(w,h) (w',h') -> (max w w', h+h')
+calcDim Ve = \(w,h) (w',h') -> (max w w', h+h')
+calcDim H  = \(w,h) (w',h') -> (w+w', max h h')
+calcDim Hb = \(w,h) (w',h') -> (w+w', max h h')
+calcDim _  = \(w,h) (w',h') -> (w+w', h+h')
 
 dimen :: X Caixa Tipo -> (Float, Float)
 dimen = (fromIntegral >< fromIntegral)
@@ -1257,11 +1323,8 @@ calcOrigins :: ((X Caixa Tipo),Origem) -> X (Caixa,Origem) ()
 calcOrigins = anaL2D g
     where
     g = (id -|- calcOrig) . distl . (outL2D >< id)
-    calcOrig ((t,(l2d,l2d')),o@(o1,o2)) =
-        let d = dimen l2d
-            o' =  calc t o d
-        in ((),((l2d,o),(l2d',o')))
-
+    calcOrig ((t,(l2d,l2d')),o) =
+        ((),((l2d,o),(l2d',calc t o $ dimen l2d)))
 
 calc :: Tipo -> Origem -> (Float, Float) -> Origem
 calc t (o1,o2) (w,h) = case t of
@@ -1271,15 +1334,11 @@ calc t (o1,o2) (w,h) = case t of
     V  -> (o1+w/2,o2+h)
     otherwise -> (o1+w,o2+h)
 
-calcDim V  = \(w,h) (w',h') -> (max w w', h+h')
-calcDim Ve = \(w,h) (w',h') -> (max w w', h+h')
-calcDim H  = \(w,h) (w',h') -> (w+w', max h h')
-calcDim Hb = \(w,h) (w',h') -> (w+w', max h h')
-calcDim _  = \(w,h) (w',h') -> (w+w', h+h')
 
 agrup_caixas :: X (Caixa, Origem) () -> Fig
 agrup_caixas = cataL2D (either (pure . swap) (conc . p2))
 
+caixasAndOrigin2Pict :: ((X Caixa Tipo),Origem) -> G.Picture
 caixasAndOrigin2Pict = G.Pictures
     . map (\(o,((w,h),(t,c))) -> crCaixa o (fromIntegral w) (fromIntegral h) t c)
     . agrup_caixas
@@ -1289,30 +1348,78 @@ caixasAndOrigin2Pict = G.Pictures
 
 \subsection*{Problema 3}
 Solução:
+\begin{math}
+\newline\indent\indent
+    cos\ x\ n = \sum_{i=0}^{n} \frac{(-x^2)^i}{(2i)!}
+\newline\indent\indent
+    cos\ x\ 0 = x^i
+\newline\indent\indent
+    cos\ x\ (n+1) = \frac{(-x^2)^i}{(2n+2)!} + cos\ x\ n
+                  = h\ x\ n + cos\ x\ n
+\newline\indent\indent
+    h\ x\ n = \frac{(-x^2)^{n+1}}{(2n+2)!}
+\newline\indent\indent
+    h\ x\ 0 = \frac{-x^2}{2}
+\newline\indent\indent
+    h\ x\ (n+1) = \frac{(-x^2)^{n+2}}{(2n+4)!}
+                = \frac{-x^2}{(2n+4)*(2n+3)} * h\ x\ n
+                = \frac{-x^2}{f\ n} * h\ x\ n
+\newline\indent\indent
+    f\ n = 4n^2+12n+8
+\end{math}
 \begin{code}
 
 cos' x = prj . for loop init where
    init = (1, (-x^2)/2, 12, 18)
    loop (cos,h,f,k) = (h+cos, ((-x^2)/f)*h, f+k, k+8)
    prj (cos,h,f,g) = cos
+
 \end{code}
 
-double cos_(double x, int n){
-    double r=1;
-    double h=-pow(x,2)/2;
-    double f=12;
-    double k=18;
-    for(int i=0; i<n; i++){
-        r+=h;
-        h=(-pow(x,2)/f)*h;
-        f+=k;
-        k+=8;
+\begin{verbatim}
+    double cos(double x, int n){
+        double r=1;
+        double h=-pow(x,2)/2;
+        double f=12;
+        double k=18;
+        for(int i=0; i<n; i++){
+            r+=h;
+            h=(-pow(x,2)/f)*h;
+            f+=k;
+            k+=8;
+        }
+        return r;
     }
-    return r;
-}
+\end{verbatim}
+
 
 \subsection*{Problema 4}
 Triologia ``ana-cata-hilo":
+
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |C|
+           \ar[d]_-{\ana{g}}
+           \ar[r]_-{|g|}
+&
+    |(A >< (B + C)*|
+           \ar[d]^{|(id >< (id + anaNat g))*|}
+\\
+    |FS A B|
+           \ar[d]_-{|cataNat g|}
+           \ar[r]_-{|outFS|}
+&
+    |(A >< (B + FS A B))*|
+           \ar[d]^{|(id >< (id + cataNat g))*|}
+           \ar[l]_-{inFS}
+\\
+     |D|
+&
+     |(A >< (B + D))*|
+           \ar[l]^-{|h|}
+}
+\end{eqnarray*}
+
 \begin{code}
 outFS (FS l) = map (id >< outNode) l
 outNode (File b) = i1 b
@@ -1369,14 +1476,12 @@ new = (curry . curry) (anaFS g)
     dist (a:as,b) = map (undistr . second (\(a',fs) -> (a',((if a==a' then as else [],b),fs))) . distr)
 
 cp :: (Eq a) => Path a -> Path a -> FS a b -> FS a b
-cp p p' fs =
-    let tfs = tar fs
-        b' = lookup p $ tfs
-    in untar
-     . cond ((||(isNothing b')) . null . lookup p) 
-        id 
-        ((p',fromJust b'):) 
-     $ tfs
+cp p p' = untar
+    . Cp.ap
+    . split (maybe id (:) . searchFile) id
+    . tar
+     where
+     searchFile = liftM (split (const p') id) . lookup p
 
 rm :: (Eq a) => (Path a) -> (FS a b) -> FS a b
 rm = curry (anaFS g)

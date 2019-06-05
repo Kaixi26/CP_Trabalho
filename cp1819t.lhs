@@ -693,13 +693,13 @@ prop_new = ((validPath .&&&. notDup) .&&&. (check . p2)) .==>.
 \end{code}
 \textbf{Questão}: Supondo-se que no código acima se substitui a propriedade
 |checkFiles| pela propriedade mais fraca |check|, será que a propriedade
-|prop_new| ainda é válida? Justifique a sua resposta.\newline
-Como a propriedade |check| é mais fraca do que a propriedade
-|checkFiles| então para todos os casos em que |checkFiles|
-é verdadeira, |check| também o será.\newline
-É então evidente que |prop_new| será válida ao fazer
-a substituição para |check| (assumindo que
-já o era com |checkFiles|).
+|prop_new| ainda é válida? Justifique a sua resposta.
+A propriedade |check| é mais "restritiva" do que a propriedade
+|checkFiles|, isto quer dizer que |checkFiles| é verdadeira
+para todos os valores que |check| é verdadeira, sendo assim,
+ao substituir |checkFiles| por |check|, se |prop_new| for
+satisfeita significa que não foram originados ficheiros
+duplicados.
 \end{propriedade}
 
 \begin{propriedade}

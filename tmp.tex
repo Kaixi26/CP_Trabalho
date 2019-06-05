@@ -1016,13 +1016,13 @@ A adição de um ficheiro não existente no sistema não origina ficheiros dupli
 \end{hscode}\resethooks
 \textbf{Questão}: Supondo-se que no código acima se substitui a propriedade
 \ensuremath{\Varid{checkFiles}} pela propriedade mais fraca \ensuremath{\Varid{check}}, será que a propriedade
-\ensuremath{\Varid{prop\char95 new}} ainda é válida? Justifique a sua resposta.\newline
-Como a propriedade \ensuremath{\Varid{check}} é mais fraca do que a propriedade
-\ensuremath{\Varid{checkFiles}} então para todos os casos em que \ensuremath{\Varid{checkFiles}}
-é verdadeira, \ensuremath{\Varid{check}} também o será.\newline
-É então evidente que \ensuremath{\Varid{prop\char95 new}} será válida ao fazer
-a substituição para \ensuremath{\Varid{check}} (assumindo que
-já o era com \ensuremath{\Varid{checkFiles}}).
+\ensuremath{\Varid{prop\char95 new}} ainda é válida? Justifique a sua resposta.
+A propriedade \ensuremath{\Varid{check}} é mais "restritiva" do que a propriedade
+\ensuremath{\Varid{checkFiles}}, isto quer dizer que \ensuremath{\Varid{checkFiles}} é verdadeira
+para todos os valores que \ensuremath{\Varid{check}} é verdadeira, sendo assim,
+ao substituir \ensuremath{\Varid{checkFiles}} por \ensuremath{\Varid{check}}, se \ensuremath{\Varid{prop\char95 new}} for
+satisfeita significa que não foram originados ficheiros
+duplicados.
 \end{propriedade}
 
 \begin{propriedade}
@@ -1835,11 +1835,7 @@ outras funções auxiliares que sejam necessárias.
 \column{5}{@{}>{\hspre}l<{\hspost}@{}}%
 \column{9}{@{}>{\hspre}l<{\hspost}@{}}%
 \column{10}{@{}>{\hspre}l<{\hspost}@{}}%
-\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
 \column{12}{@{}>{\hspre}l<{\hspost}@{}}%
-\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
-\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
-\column{23}{@{}>{\hspre}l<{\hspost}@{}}%
 \column{E}{@{}>{\hspre}l<{\hspost}@{}}%
 \>[B]{}\Varid{inExpr}\mathbin{::}\Conid{Int}+(\Conid{Op},(\Conid{Expr},\Conid{Expr}))\to \Conid{Expr}{}\<[E]%
 \\
@@ -1870,6 +1866,8 @@ outras funções auxiliares que sejam necessárias.
 \>[B]{}\Varid{cataExpr}\;\Varid{g}\mathrel{=}\Varid{g}\comp \Varid{recExpr}\;(\Varid{cataExpr}\;\Varid{g})\comp \Varid{outExpr}{}\<[E]%
 \\[\blanklineskip]%
 \>[B]{}\Varid{anaExpr}\;\Varid{g}\mathrel{=}\Varid{inExpr}\comp \Varid{recExpr}\;(\Varid{anaExpr}\;\Varid{g})\comp \Varid{g}{}\<[E]%
+\\[\blanklineskip]%
+\>[B]{}\Varid{hyloExpr}\;\Varid{g}\;\Varid{h}\mathrel{=}\Varid{cataExpr}\;\Varid{h}\comp \Varid{anaExpr}\;\Varid{g}{}\<[E]%
 \\[\blanklineskip]%
 \>[B]{}\Varid{bopTable}\mathrel{=}[\mskip1.5mu (\text{\ttfamily \char34 +\char34},(\uncurry{(\mathbin{+})},\text{\ttfamily \char34 ADD\char34})){}\<[E]%
 \\
@@ -1918,7 +1916,39 @@ outras funções auxiliares que sejam necessárias.
 \\
 \>[B]{}\hsindent{5}{}\<[5]%
 \>[5]{}\Varid{printBop}\;(\Varid{op},(\Varid{es},\Varid{es'}))\mathrel{=}\Varid{concat}\;[\mskip1.5mu \Varid{es},\Varid{es'},[\mskip1.5mu \Varid{bopExtr}\;\Varid{bop2St}\;\Varid{op}\mskip1.5mu]\mskip1.5mu]{}\<[E]%
-\\[\blanklineskip]%
+\ColumnHook
+\end{hscode}\resethooks
+A função readExp devolve uma lista com os possíveis parses
+da string,
+\begin{tabbing}\ttfamily
+~\char62{}~\char58{}i~ReadS\\
+\ttfamily ~type~ReadS~a~\char61{}~String~\char45{}\char62{}~\char91{}\char40{}a\char44{}~String\char41{}\char93{}
+\end{tabbing}
+os possíveis parses vêm de parsers auxiliares cujos resultados
+são concatenados com o operador \textit{ou}.
+
+A função \textit{readNum} funciona utilizando o \textit{reads} já
+implementado na linguaguem para ler um inteiro e usa depois
+o \textit{map} para transformar o possível \textit{Int} lido
+para o tipo \textit{Expr}.
+
+A função \textit{readBinOp} tenta fazer parse a um operador
+e duas expressões, isto é realizado com o auxilio dos operadores:
+\textit{depois} que tenta fazer parse ao primeiro argumento
+e usa a string restante para dar parse ao segundo argumento;
+\textit{pcurvos} que recebe um parser e tenta usá-lo dentro
+de uma string com parêntesis.
+
+
+\begin{hscode}\SaveRestoreHook
+\column{B}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{5}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{9}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{11}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{13}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{20}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{23}{@{}>{\hspre}l<{\hspost}@{}}%
+\column{E}{@{}>{\hspre}l<{\hspost}@{}}%
 \>[B]{}\Varid{readExpr'}\mathbin{::}\Conid{String}\to \Conid{Expr}{}\<[E]%
 \\
 \>[B]{}\Varid{readExpr'}\mathrel{=}\Varid{anaExpr}\;\Varid{g}\comp \Varid{filter}\;(\not\equiv \text{\ttfamily '~'}){}\<[E]%

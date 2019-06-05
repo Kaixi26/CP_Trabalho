@@ -1213,6 +1213,30 @@ compile = cataExpr (either printPush printBop) . read
     printPush = pure . (++) "PUSH " . show
     printBop (op,(es,es')) = concat [es,es',[bopExtr bop2St op]]
 
+\end{code}
+A função readExp devolve uma lista com os possíveis parses
+da string,
+\begin{verbatim}
+> :i ReadS
+type ReadS a = String -> [(a, String)]
+\end{verbatim}
+os possíveis parses vêm de parsers auxiliares cujos resultados
+são concatenados com o operador \textit{ou}.
+
+A função \textit{readNum} funciona utilizando o \textit{reads} já
+implementado na linguaguem para ler um inteiro e usa depois
+o \textit{map} para transformar o possível \textit{Int} lido
+para o tipo \textit{Expr}.
+
+A função \textit{readBinOp} tenta fazer parse a um operador
+e duas expressões, isto é realizado com o auxilio dos operadores:
+\textit{depois} que tenta fazer parse ao primeiro argumento
+e usa a string restante para dar parse ao segundo argumento;
+\textit{pcurvos} que recebe um parser e tenta usá-lo dentro
+de uma string com parêntesis.
+
+
+\begin{code}
 readExpr' :: String -> Expr
 readExpr' = anaExpr g . filter (/=' ')
     where
